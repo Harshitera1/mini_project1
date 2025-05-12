@@ -1,7 +1,11 @@
 import streamlit as st
+import pandas as pd
+from db import get_mechanics, seed_mechanics
 
-# Set page config
 st.set_page_config(page_title="🛣️ Road Guardian", layout="centered")
+
+# Initialize database
+seed_mechanics()
 
 # App header
 st.title("🛠️ Road Guardian")
@@ -19,18 +23,26 @@ services = [
 
 selected_service = st.selectbox("Choose a service you need:", services)
 
-# Fake mechanic info
 if selected_service and selected_service != "Emergency (Call Police)":
-    st.success(f"Mechanic found nearby for {selected_service}!")
-    st.write("👨‍🔧 Name: Rahul Auto Services")
-    st.write("📍 Distance: 1.2 km away")
-    st.write("💸 Estimated Cost: ₹300")
-    st.write("⏱️ Estimated Time of Arrival: 15 minutes")
-    st.map()  # Optional map
+    mechanics = get_mechanics()
+    if mechanics:
+        st.success(f"Mechanics available for {selected_service}:")
 
+        for m in mechanics:
+            st.write(f"🔧 **{m['name']}**")
+            st.write(f"📍 Location: {m['location']}")
+            st.write(f"💸 Cost: ₹{m['cost']}")
+            st.write(f"⏱️ ETA: {m['eta_min']} min")
+            st.markdown("---")
+
+        # Map
+        df = pd.DataFrame(mechanics)
+        df = df.rename(columns={"lat": "latitude", "lon": "longitude"})
+        st.map(df)
+    else:
+        st.warning("No mechanics found.")
 elif selected_service == "Emergency (Call Police)":
     st.error("🚨 Alert: Notifying local police...")
     st.balloons()
 
-# Footer
 st.caption("Built with ❤️ using Streamlit")
