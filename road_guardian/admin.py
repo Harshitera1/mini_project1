@@ -14,12 +14,14 @@ if mechanics:
         st.write(f"📍 Location: {m['location']}")
         st.write(f"🛠 Services: {', '.join(m['services'])}")
         st.write(f"💸 Cost: ₹{m['cost']}")
-        st.write(f"📍 Lat/Lon: ({m['lat']}, {m['lon']})")
+        st.write(f"📍 Coordinates: ({m['lat']}, {m['lon']})")
+        st.write(f"⏱️ ETA: {m['eta_min']} min")
         st.markdown("---")
 else:
     st.warning("No mechanics found.")
 
 st.header("➕ Add New Mechanic")
+
 with st.form("add_mechanic_form"):
     name = st.text_input("Name")
     location = st.text_input("Location")
@@ -32,7 +34,7 @@ with st.form("add_mechanic_form"):
 
     if submit_btn:
         if not name or not location or not services_input:
-            st.error("Please fill all required fields.")
+            st.error("❌ Please fill all required fields.")
         else:
             services = [s.strip() for s in services_input.split(",")]
             new_mechanic = {
@@ -40,7 +42,7 @@ with st.form("add_mechanic_form"):
                 "location": location,
                 "services": services,
                 "cost": cost,
-                "distance_km": 1.0,
+                "distance_km": 1.0,  # you can calculate this dynamically later
                 "eta_min": eta,
                 "lat": lat,
                 "lon": lon
