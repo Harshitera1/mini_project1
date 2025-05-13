@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from db import get_mechanics, seed_mechanics, add_booking, get_user_bookings, rate_mechanic, get_average_rating
-from helpers import estimate_repair_time, get_youtube_link
+from helpers import estimate_repair_time, get_youtube_link, calculate_distance, estimate_eta_and_cost
 
 st.set_page_config(page_title="🛣️ Road Guardian", layout="centered")
 
@@ -52,6 +52,10 @@ region = st.selectbox("Select Region", ["North", "South", "East", "West", "Centr
 state = st.text_input("Enter State")
 city = st.text_input("Enter City")
 
+# GPS input
+user_lat = st.number_input("Enter your Latitude", format="%.6f")
+user_lon = st.number_input("Enter your Longitude", format="%.6f")
+
 if not (state and city):
     st.warning("Please enter your state and city to continue.")
     st.stop()
@@ -71,27 +75,29 @@ if filtered_mechanics:
     st.success(f"🔍 Found {len(filtered_mechanics)} mechanics in {city}, {state} for {selected_service}:")
 
     for m in filtered_mechanics:
+        m["distance_km"] = round(calculate_distance(user_lat, user_lon, m["lat"], m["lon"]), 2)
+        m["eta_min"], m["cost"] = estimate_eta_and_cost(m["distance_km"], selected_service)
+
         st.write(f"🔧 **{m['name']}**")
         st.write(f"📍 Location: {m['location']}")
+        st.write(f"📶 Distance: {m['distance_km']} km")
         st.write(f"💸 Cost: ₹{m['cost']}")
         st.write(f"⏱️ ETA: {m['eta_min']} min")
+
         repair_time = estimate_repair_time(selected_service)
         st.write(f"🛠️ Estimated Repair Time: {repair_time} minutes")
         yt_link = get_youtube_link(selected_service)
         st.markdown(f"[🎥 How to deal with this issue]({yt_link})", unsafe_allow_html=True)
 
-        # Show average rating
         avg_rating = get_average_rating(m)
         st.write(f"⭐ Average Rating: {avg_rating}")
 
-        # Rate mechanic
         with st.expander("Rate this mechanic"):
             user_rating = st.slider("Rate from 1 (worst) to 5 (best)", 1, 5, key=f"rating_{m['name']}")
             if st.button(f"Submit Rating for {m['name']}", key=f"submit_{m['name']}"):
                 rate_mechanic(m['name'], user_rating)
                 st.success("Thank you! Your rating has been submitted.")
 
-        # Request mechanic
         if st.button(f"📞 Request {m['name']}", key=m['name']):
             booking = {
                 "user_name": st.session_state.user_mobile,
@@ -107,8 +113,7 @@ if filtered_mechanics:
         st.markdown("---")
 
     # Show map
-    df = pd.DataFrame(filtered_mechanics)
-    df = df.rename(columns={"lat": "latitude", "lon": "longitude"})
+    df = pd.DataFrame(filtered_mechanics).rename(columns={"lat": "latitude", "lon": "longitude"})
     st.map(df)
 else:
     st.warning(f"No mechanics found in {city}, {state} for '{selected_service}'.")

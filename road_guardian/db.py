@@ -365,7 +365,13 @@ def seed_mechanics():
 def get_mechanics():
     """Fetch all mechanics from database"""
     if _use_mock:
+        print("🔁 Returning mechanics from MOCK data.")
         return list(_mock_mechanics)
+
+    if mechanics_collection.count_documents({}) == 0:
+        print("📦 MongoDB empty — seeding with mock mechanics.")
+        mechanics_collection.insert_many(_mock_mechanics)
+
     return list(mechanics_collection.find({}, {"_id": 0}))
 
 def add_mechanic(mechanic_data):
