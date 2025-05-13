@@ -1,5 +1,3 @@
-# db.py
-
 import os
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -7,7 +5,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI")
-
 client = MongoClient(MONGO_URI)
 db = client["road_guardian"]
 mechanics_collection = db["mechanics"]
@@ -18,6 +15,7 @@ def seed_mechanics():
             {
                 "name": "Raj Mechanic Works",
                 "location": "Andheri West",
+                "services": ["Flat Tire Support", "Battery Jump"],
                 "cost": 300,
                 "distance_km": 1.5,
                 "eta_min": 12,
@@ -27,6 +25,7 @@ def seed_mechanics():
             {
                 "name": "AutoFix Garage",
                 "location": "Bandra East",
+                "services": ["Engine Trouble", "Vehicle Towing", "Condition Analysis"],
                 "cost": 450,
                 "distance_km": 2.3,
                 "eta_min": 18,
@@ -41,3 +40,6 @@ def seed_mechanics():
 
 def get_mechanics():
     return list(mechanics_collection.find({}, {"_id": 0}))
+
+def add_mechanic(mechanic_data):
+    mechanics_collection.insert_one(mechanic_data)
