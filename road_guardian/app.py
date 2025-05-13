@@ -6,7 +6,6 @@ from geopy.geocoders import Nominatim
 
 st.set_page_config(page_title="🛣️ Road Guardian", layout="centered")
 
-# Check if logged in
 if not st.session_state.get("logged_in", False):
     st.error("Please log in to access this page.")
     st.markdown("[Login](/Login)", unsafe_allow_html=True)
@@ -15,10 +14,9 @@ if not st.session_state.get("logged_in", False):
 st.title("🛠️ Road Guardian - Get Help")
 st.subheader("Describe your problem and location to find nearby mechanics.")
 
-# User inputs
 with st.form("help_form"):
     problem_description = st.text_area("Describe your problem (e.g., flat tire, engine trouble):")
-    user_location = st.text_input("Enter your location (e.g., Connaught Place, Delhi, or any village/district):")
+    user_location = st.text_input("Enter your location (e.g., Connaught Place, Delhi):")
     submitted = st.form_submit_button("Find Help")
 
 if submitted:
@@ -26,7 +24,6 @@ if submitted:
         st.warning("Please enter both your problem and location.")
         st.stop()
 
-    # Geocode user location
     geolocator = Nominatim(user_agent="road_guardian")
     try:
         location = geolocator.geocode(user_location)
@@ -39,7 +36,6 @@ if submitted:
         st.error(f"Geocoding error: {e}")
         st.stop()
 
-    # Service keyword mapping
     service_keywords = {
         "Flat Tire Support": ["flat", "tire", "tyre", "puncture"],
         "Engine Trouble": ["engine", "start", "stall", "overheat"],
@@ -49,14 +45,12 @@ if submitted:
         "Emergency (Call Police)": ["emergency", "police", "help"]
     }
 
-    # Match services
     desc_words = problem_description.lower().split()
     matched_services = [service for service, keywords in service_keywords.items() if any(word in keywords for word in desc_words)]
 
     if not matched_services:
         st.warning("No matching services found. Try rephrasing your problem.")
     else:
-        # Load and filter mechanics
         mechanics = get_mechanics()
         filtered_mechanics = []
         for m in mechanics:
@@ -70,15 +64,14 @@ if submitted:
                     filtered_mechanics.append(m)
                     break
 
-        # Sort by distance
         filtered_mechanics.sort(key=lambda x: x["distance_km"])
+        top_10_mechanics = filtered_mechanics[:10]
 
-        if filtered_mechanics:
-            st.success(f"Found {len(filtered_mechanics)} mechanics near {user_location}:")
-            for m in filtered_mechanics:
+        if top_10_mechanics:
+            st.success(f"Found {len(top_10_mechanics)} mechanics near {user_location}:")
+            for m in top_10_mechanics:
                 st.write(f"🔧 **{m['name']}**")
-                st.write(f"📍 Location: {m['location']}")
-                st.write(f"📶 Distance: {m['distance_km']} km")
+                st.write(f"📍 Location: {m['location']} ({m['distance_km']} km away)")
                 st.write(f"💸 Cost: ₹{m['cost']}")
                 st.write(f"⏱️ ETA: {m['eta_min']} min")
                 repair_time = estimate_repair_time(next(s for s in matched_services if s in m["services"]))
@@ -99,7 +92,7 @@ if submitted:
                         st.write("No reviews yet.")
 
                 with st.expander("Rate this mechanic"):
-                    user_rating = st.slider("Rate from 1 (worst) to 5 (best)", 1, 5, key=f"rating_{m['name']}")
+                    user_rating = st.slider("Rate from 1 to 5", 1, 5, key=f"rating_{m['name']}")
                     user_comment = st.text_area("Optional comment", key=f"comment_{m['name']}")
                     if st.button(f"Submit Rating for {m['name']}", key=f"submit_{m['name']}"):
                         review = {"rating": user_rating}
@@ -115,20 +108,23 @@ if submitted:
                         "location": m['location'],
                         "service": next(s for s in matched_services if s in m["services"]),
                         "cost": m['cost'],
-                        "eta": m['eta_min']
+                        "eta": m['eta_min'],
+                        "mechanic_lat": m['lat'],
+                        "mechanic_lon": m['lon']
                     }
                     add_booking(booking)
-                    st.success(f"✅ Help requested from {m['name']}! ETA: {m['eta_min']} minutes.")
-
+                    st.success(f"✅ Help requested from {m['name']}! ETA: {m['eta_min']} min.")
+                    st.write(f"📍 Mechanic Location: {m['location']}")
+                    st.write(f"⏱️ ETA: {m['eta_min']} min")
+                    st.write(f"⭐ Rating: {avg_rating}")
+                    st.map(pd.DataFrame([{"latitude": m['lat'], "longitude": m['lon']}]))
                 st.markdown("---")
 
-            # Show map
-            df = pd.DataFrame(filtered_mechanics).rename(columns={"lat": "latitude", "lon": "longitude"})
+            df = pd.DataFrame(top_10_mechanics).rename(columns={"lat": "latitude", "lon": "longitude"})
             st.map(df)
         else:
             st.warning(f"No mechanics found near {user_location} for your problem.")
 
-# Booking history
 st.markdown("## 📋 Your Booking History")
 bookings = get_user_bookings(st.session_state.user_mobile)
 if bookings:
@@ -139,6 +135,8 @@ if bookings:
         st.write(f"🛠️ Service: {b['service']}")
         st.write(f"💸 Cost: ₹{b['cost']}")
         st.write(f"⏱️ ETA: {b['eta']} minutes")
+        if 'mechanic_lat' in b and 'mechanic_lon' in b:
+            st.map(pd.DataFrame([{"latitude": b['mechanic_lat'], "longitude": b['mechanic_lon']}]))
         st.markdown("---")
 else:
     st.info("No bookings made yet.")

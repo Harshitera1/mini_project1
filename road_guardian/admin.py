@@ -49,4 +49,4 @@ with st.form("add_mechanic_form"):
             }
             add_mechanic(new_mechanic)
             st.success(f"✅ Mechanic '{name}' added successfully!")
-            st.experimental_rerun()
+            st.rerun()
