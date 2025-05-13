@@ -1,20 +1,26 @@
-# app.py
-
 import streamlit as st
 import pandas as pd
-from db import get_mechanics, seed_mechanics
-from helpers import estimate_repair_time
+from db import get_mechanics, seed_mechanics, add_booking, get_user_bookings, rate_mechanic, get_average_rating
+from helpers import estimate_repair_time, get_youtube_link
 
 st.set_page_config(page_title="🛣️ Road Guardian", layout="centered")
 
-# Seed mechanics (if needed)
+# Seed mechanics if needed
 seed_mechanics()
 
-# Session state for bookings
-if "bookings" not in st.session_state:
-    st.session_state.bookings = []
+# Session for user login
+if "user_mobile" not in st.session_state:
+    st.session_state.user_mobile = ""
 
-# App header
+# User login/registration
+st.markdown("### 📱 User Login / Register")
+st.session_state.user_mobile = st.text_input("Enter your mobile number to continue")
+
+if not st.session_state.user_mobile:
+    st.warning("Please enter your mobile number to proceed.")
+    st.stop()
+
+# App Header
 st.title("🛠️ Road Guardian")
 st.subheader("Your Nationwide Roadside Help Companion")
 
@@ -29,7 +35,7 @@ services = [
 ]
 selected_service = st.selectbox("🔧 Choose a service you need:", services)
 
-# Emergency trigger
+# Emergency Handling
 if selected_service == "Emergency (Call Police)":
     st.error("🚨 Emergency Mode Activated!")
     st.markdown("#### 📞 Call Emergency Contacts:")
@@ -40,7 +46,7 @@ if selected_service == "Emergency (Call Police)":
     st.warning("Stay calm. Help is on the way.")
     st.stop()
 
-# Location inputs
+# User Location Input
 st.markdown("## 📍 Your Location")
 region = st.selectbox("Select Region", ["North", "South", "East", "West", "Central", "North-East"])
 state = st.text_input("Enter State")
@@ -50,7 +56,7 @@ if not (state and city):
     st.warning("Please enter your state and city to continue.")
     st.stop()
 
-# Load mechanics and filter
+# Fetch and filter mechanics
 mechanics = get_mechanics()
 filtered_mechanics = [
     m for m in mechanics
@@ -60,7 +66,7 @@ filtered_mechanics = [
        city.lower() in m.get("city", "").lower()
 ]
 
-# Show results
+# Show mechanics
 if filtered_mechanics:
     st.success(f"🔍 Found {len(filtered_mechanics)} mechanics in {city}, {state} for {selected_service}:")
 
@@ -71,21 +77,36 @@ if filtered_mechanics:
         st.write(f"⏱️ ETA: {m['eta_min']} min")
         repair_time = estimate_repair_time(selected_service)
         st.write(f"🛠️ Estimated Repair Time: {repair_time} minutes")
+        yt_link = get_youtube_link(selected_service)
+        st.markdown(f"[🎥 How to deal with this issue]({yt_link})", unsafe_allow_html=True)
 
+        # Show average rating
+        avg_rating = get_average_rating(m)
+        st.write(f"⭐ Average Rating: {avg_rating}")
+
+        # Rate mechanic
+        with st.expander("Rate this mechanic"):
+            user_rating = st.slider("Rate from 1 (worst) to 5 (best)", 1, 5, key=f"rating_{m['name']}")
+            if st.button(f"Submit Rating for {m['name']}", key=f"submit_{m['name']}"):
+                rate_mechanic(m['name'], user_rating)
+                st.success("Thank you! Your rating has been submitted.")
+
+        # Request mechanic
         if st.button(f"📞 Request {m['name']}", key=m['name']):
             booking = {
+                "user_name": st.session_state.user_mobile,
                 "mechanic": m['name'],
                 "location": m['location'],
                 "service": selected_service,
                 "cost": m['cost'],
                 "eta": m['eta_min']
             }
-            st.session_state.bookings.append(booking)
+            add_booking(booking)
             st.success(f"✅ Help requested from {m['name']}! ETA: {m['eta_min']} minutes.")
 
         st.markdown("---")
 
-    # Map view
+    # Show map
     df = pd.DataFrame(filtered_mechanics)
     df = df.rename(columns={"lat": "latitude", "lon": "longitude"})
     st.map(df)
@@ -94,8 +115,9 @@ else:
 
 # Booking history
 st.markdown("## 📋 Your Booking History")
-if st.session_state.bookings:
-    for i, b in enumerate(st.session_state.bookings):
+bookings = get_user_bookings(st.session_state.user_mobile)
+if bookings:
+    for i, b in enumerate(bookings):
         st.write(f"### Booking #{i+1}")
         st.write(f"🔧 Mechanic: {b['mechanic']}")
         st.write(f"📍 Location: {b['location']}")

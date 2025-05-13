@@ -1,13 +1,12 @@
-# road_guardian/pages/Register_User.py
-
 import streamlit as st
 from datetime import datetime
+import random
 
 st.set_page_config(page_title="🧍 User Registration")
 
 st.title("🧍 Register as a Road Guardian User")
 
-st.markdown("Create your account to access nationwide roadside services instantly.")
+st.markdown("Create your account to access roadside services instantly.")
 
 with st.form("user_registration_form"):
     name = st.text_input("Full Name")
@@ -16,14 +15,19 @@ with st.form("user_registration_form"):
     region = st.selectbox("Region", ["North", "South", "East", "West", "Central", "North-East"])
     state = st.text_input("State")
     city = st.text_input("City")
+    otp = st.text_input("Enter OTP (simulated)", max_chars=6)
 
-    submit = st.form_submit_button("Register")
+    if st.form_submit_button("Send OTP"):
+        otp_code = str(random.randint(100000, 999999))
+        st.session_state.otp_code = otp_code
+        st.info(f"(Simulated) OTP sent: {otp_code}")
 
-    if submit:
+    if st.form_submit_button("Register"):
         if not (name and phone and email and state and city):
             st.error("❌ All fields are required.")
+        elif otp != st.session_state.get("otp_code"):
+            st.error("❌ Incorrect OTP.")
         else:
-            # Simulate storing user (expand later to MongoDB)
             user_data = {
                 "name": name,
                 "phone": phone,
@@ -31,15 +35,10 @@ with st.form("user_registration_form"):
                 "region": region,
                 "state": state,
                 "city": city,
-                "role": "user",
                 "registered_at": datetime.now().isoformat()
             }
-
-            # Save in session or send to MongoDB (future)
             if "users" not in st.session_state:
                 st.session_state.users = []
-
             st.session_state.users.append(user_data)
-
-            st.success(f"✅ Welcome, {name}! You’ve been registered as a user.")
+            st.success(f"✅ Welcome, {name}! You’ve been registered.")
             st.info(f"🗺️ You’re located in {city}, {state} — Region: {region}")
